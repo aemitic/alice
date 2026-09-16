@@ -20,7 +20,7 @@ function renderEditTab() {
       <div style="flex:1">
         <div class="box-name">${name}</div>
       </div>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--bd2)" stroke-width="2" style="cursor:pointer;flex-shrink:0" onclick="event.stopPropagation();deleteBox(${i})"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <svg class="box-del" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--bd2)" stroke-width="2" style="cursor:pointer;flex-shrink:0" onclick="event.stopPropagation();deleteBox(${i})"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </div>`;
   }
 
@@ -30,7 +30,7 @@ function renderEditTab() {
     <button class="btn sm" onclick="popUndo()" data-tip="Undo last box edit (Ctrl+Z)">↩ Undo</button>
     <button class="btn sm" onclick="openCopyMove('copy')" data-tip="Copy this image + label to another dataset">Copy</button>
     <button class="btn sm" onclick="openCopyMove('move')" data-tip="Move this image + label to another dataset">Move</button>
-    <button class="btn sm danger" onclick="deleteImage()" data-tip="Permanently delete this image and its label file">Delete</button>
+    <button class="btn sm danger" onclick="deleteImage()" data-tip="Permanently delete this image and its label file">Delete image</button>
   </div>`;
 
   html += '<div class="divider"></div>';
@@ -1441,7 +1441,12 @@ function showImageContextMenu(e) {
 }
 
 function deleteImage() {
-  if (!confirm(`Delete ${currentName}?`)) return;
+  // Name the thing being destroyed, not just the file it lives in. "Delete
+  // <name>?" reads as "delete the box in <name>?" to anyone who arrived here
+  // expecting the button to remove an annotation.
+  if (!confirm(`Delete the IMAGE ${currentName} and its label file?\n\n`
+              + `This removes the picture from the dataset permanently. `
+              + `To remove a box instead, use the x next to it in Annotations.`)) return;
   const tip = document.getElementById('tipPopup');
   if (tip) tip.style.display = 'none';
   fetch('/api/del', {

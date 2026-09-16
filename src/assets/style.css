@@ -832,6 +832,16 @@ canvas#mainCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 10
      the panel by some margin. */
   .edit-shortcuts { display: none; }
 
+  /* The two delete affordances are inverted on touch. Removing a BOX -- the
+     recoverable one, Ctrl+Z brings it back -- is a 12px glyph, while deleting
+     the IMAGE is a full-size button and cannot be undone at all. Grow the
+     hit area of the small one to a real touch target. Negative margin cancels
+     the padding so nothing moves; only the region that responds changes. */
+  .box-item .box-del {
+    padding: 16px; margin: -16px; box-sizing: content-box; overflow: visible;
+  }
+  .box-item { overflow: visible; }
+
   /* The toolbars are `overflow: hidden` flex rows sized for a desktop. At
      412px the dataset toolbar holds 493px of content in a 354px box and the
      settings toolbar holds 782px, so the next-image button, the gallery
