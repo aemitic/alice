@@ -768,6 +768,11 @@ function navigate(delta) {
     if (totalImages > 0) loadImage(newIdx);
   } else if (currentMode === 'live') {
     navigateLive(delta);
+  } else if (currentMode === 'video') {
+    // navigate() silently did nothing in video mode, so the arrow keys and the
+    // canvas paging buttons were both dead there. Stepping a frame is the
+    // equivalent of "previous / next" in a clip.
+    videoStep(delta);
   }
 }
 
