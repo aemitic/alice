@@ -139,6 +139,31 @@ function init() {
   });
   window.addEventListener('resize', resizeCanvas);
 
+  // The canvas takes its size from .canvas-area, and that container now changes
+  // height for reasons no existing handler covers. On a narrow viewport the
+  // panel is a bottom sheet whose height follows its content, so switching from
+  // the Edit tab to the AI tab grows it by ~130px and the canvas area shrinks
+  // underneath a canvas that never re-measures: the backing store stays at the
+  // old height, CSS scales it into the smaller box, and the bottom of the image
+  // is drawn outside what you can see.
+  //
+  // Wiring resizeCanvas() into setPanelTab() would fix that one path and leave
+  // the next one. An observer on the container catches every cause -- tab
+  // switches, panel content growing, a soft keyboard appearing, rotation --
+  // including the ones not thought of yet. The dimension guard is not an
+  // optimisation: resizeCanvas() writes to the canvas, and without it a
+  // same-size notification would loop.
+  const _canvasArea = document.getElementById('canvasArea');
+  if (_canvasArea && typeof ResizeObserver !== 'undefined') {
+    let _lastW = 0, _lastH = 0;
+    new ResizeObserver(() => {
+      const w = _canvasArea.clientWidth, h = _canvasArea.clientHeight;
+      if (w === _lastW && h === _lastH) return;
+      _lastW = w; _lastH = h;
+      resizeCanvas();
+    }).observe(_canvasArea);
+  }
+
   // The sidebar always starts expanded and the panel restores its saved state,
   // so on a narrow viewport the very first paint can show both drawers stacked
   // on top of each other. Collapse the sidebar and leave the panel as the user
