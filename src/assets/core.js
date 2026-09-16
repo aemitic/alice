@@ -139,6 +139,17 @@ function init() {
   });
   window.addEventListener('resize', resizeCanvas);
 
+  // The sidebar always starts expanded and the panel restores its saved state,
+  // so on a narrow viewport the very first paint can show both drawers stacked
+  // on top of each other. Collapse the sidebar and leave the panel as the user
+  // left it. Re-checked on rotation, where a landscape phone can cross back.
+  const _narrow = window.matchMedia(NARROW_VIEWPORT);
+  const _oneDrawerAtMost = () => {
+    if (_narrow.matches && sidebarIsOpen() && panelOpen) toggleSidebar();
+  };
+  _oneDrawerAtMost();
+  if (_narrow.addEventListener) _narrow.addEventListener('change', _oneDrawerAtMost);
+
   const dsel = document.getElementById('datasetSel');
   if (dsel) STATE_DATASET_PATH = dsel.value;
 
@@ -456,10 +467,25 @@ function switchMode(mode) {
 // ============================================================
 // SIDEBAR
 // ============================================================
+// Below this width the sidebar and the panel open as overlay drawers rather
+// than as columns — see the matching media query in style.css. Keep the two
+// values in sync.
+const NARROW_VIEWPORT = '(max-width: 860px)';
+function isNarrowViewport() { return window.matchMedia(NARROW_VIEWPORT).matches; }
+function sidebarIsOpen() {
+  const sb = document.getElementById('sidebar');
+  return !!sb && !sb.classList.contains('collapsed');
+}
+
 function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   sb.classList.toggle('collapsed');
   updateSidebarToggle();
+  // On a phone both drawers overlap, so opening one closes the other. The
+  // guard is on the OPENING direction only, which is what stops this from
+  // recursing: togglePanel() below closes the panel, and its own guard then
+  // sees panelOpen === false and stops.
+  if (sidebarIsOpen() && isNarrowViewport() && panelOpen) togglePanel();
 }
 
 function updateSidebarToggle() {
@@ -483,6 +509,7 @@ function togglePanel() {
   p.classList.toggle('collapsed', !panelOpen);
   updatePanelToggle();
   setTimeout(resizeCanvas, 250);
+  if (panelOpen && isNarrowViewport() && sidebarIsOpen()) toggleSidebar();
 }
 
 function updatePanelToggle() {

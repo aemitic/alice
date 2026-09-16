@@ -744,3 +744,39 @@ canvas#mainCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 10
   overflow-y: auto; padding: 32px;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ============================================================
+   NARROW VIEWPORTS — phones and small tablets
+   ============================================================
+   The desktop layout is one flex row: .sidebar (min 180px) + .canvas-area +
+   .panel (min 260px). That is 440px of chrome before the image gets a single
+   pixel, so on a 412px-wide phone .canvas-area is squeezed to 0 and the
+   annotation canvas is simply not there.
+
+   Below the breakpoint the two chrome columns stop competing with the canvas
+   for row width. Collapsed, they stay in flow as the same narrow rails used
+   on desktop. Expanded, they lift out of flow and float over the canvas as
+   drawers, so the image always has the full viewport underneath it.
+
+   Each drawer keeps its own collapse button (.sidebar-collapse-btn and
+   .panel-collapse-btn live inside the elements), so there is always a way
+   back without needing a scrim or any new markup. */
+@media (max-width: 860px) {
+  /* Collapsed: the rail, in flow. Same widths as .collapsed uses. */
+  .sidebar { width: 58px; min-width: 58px; }
+  .panel   { width: 42px; min-width: 42px; }
+
+  /* Expanded: an overlay. `fixed` for the sidebar because its flex parent is
+     <body>, which is not a positioned ancestor; `absolute` for the panel
+     because .content already sets position: relative. */
+  .sidebar:not(.collapsed) {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: min(78vw, 230px); min-width: 0;
+    z-index: 60; box-shadow: 6px 0 28px rgba(0, 0, 0, 0.55);
+  }
+  .panel:not(.collapsed) {
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: min(88vw, 400px); min-width: 0;
+    z-index: 50; box-shadow: -6px 0 28px rgba(0, 0, 0, 0.55);
+  }
+}
