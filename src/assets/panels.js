@@ -210,7 +210,7 @@ function renderStatsTab() {
   fetch('/api/stats').then(r => r.json()).then(d => {
     const el = document.getElementById('statsContent');
     if (!el) return;
-    let h = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">';
+    let h = '<div class="form-row" style="--cols:1fr 1fr;gap:8px;margin-bottom:12px">';
     const cards = [
       { label: 'Total', value: d.total, color: 'var(--t0)' },
       { label: 'Train', value: d.train, color: 'var(--ac)' },

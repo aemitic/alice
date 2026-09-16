@@ -1142,6 +1142,41 @@ canvas.addEventListener('wheel', function(e) {
   }
 }, { passive: false });
 
+// Touch: swipe left/right to page through images.
+//
+// There is no other way to do it on a phone. Navigation is bound to the arrow
+// keys (no keyboard), the wheel event (touch scrolling does not emit one) and
+// the two toolbar buttons -- and on a narrow viewport the "next" button is the
+// one that ends up furthest past the edge of the toolbar.
+//
+// Deliberately touchstart + touchend only, with no touchmove handler and no
+// preventDefault on the way in: the browser synthesises the mouse events this
+// canvas is built on from an untouched touch sequence, and that synthesis is
+// the only reason tapping works here at all. Cancelling touchend once a swipe
+// is recognised is what stops that same tap from also landing as a click.
+let _touchStart = null;
+const SWIPE_MIN_PX = 60;      // shorter than this is a tap or a wobble
+const SWIPE_MAX_MS = 600;     // slower than this is a drag, not a flick
+
+canvas.addEventListener('touchstart', function(e) {
+  _touchStart = e.touches.length === 1
+    ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
+    : null;  // two fingers is a pinch, not a page turn
+}, { passive: true });
+
+canvas.addEventListener('touchend', function(e) {
+  if (!_touchStart || e.changedTouches.length !== 1) { _touchStart = null; return; }
+  const dx = e.changedTouches[0].clientX - _touchStart.x;
+  const dy = e.changedTouches[0].clientY - _touchStart.y;
+  const dt = Date.now() - _touchStart.t;
+  _touchStart = null;
+  // Horizontal by a clear margin, or a diagonal drag meant as drawing would
+  // page the image away instead.
+  if (dt > SWIPE_MAX_MS || Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 2) return;
+  e.preventDefault();          // suppress the synthesised click for this gesture
+  navigate(dx < 0 ? 1 : -1);   // swipe left = forward, like a photo gallery
+}, { passive: false });
+
 // Middle click freeze
 canvas.addEventListener('mousedown', function(e) {
   if (e.button === 1) {
