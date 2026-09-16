@@ -292,7 +292,12 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   min-width: 0; min-height: 0;
 }
 
-canvas#mainCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; }
+/* touch-action: none is load-bearing, not a tidy-up. Without it the browser
+   treats a one-finger drag across the canvas as a pan, takes the gesture over
+   and stops delivering pointermove -- which is exactly why a box could not be
+   drawn by touch. The canvas has its own pan and zoom, so there is nothing
+   here for the browser to scroll anyway. */
+canvas#mainCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
 
 .selection-badge {
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%);

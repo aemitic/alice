@@ -924,8 +924,9 @@ function imgToNorm(ix, iy) {
   return { x: ix / img.naturalWidth, y: iy / img.naturalHeight };
 }
 
-canvas.addEventListener('mousedown', function(e) {
+canvas.addEventListener('pointerdown', function(e) {
   if (!imgLoaded) return;
+  if (_activePointers.size > 1) return;   // second finger down: that is a navigation gesture, not a draw
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
 
@@ -1007,7 +1008,7 @@ canvas.addEventListener('mousedown', function(e) {
   }
 });
 
-canvas.addEventListener('mousemove', function(e) {
+canvas.addEventListener('pointermove', function(e) {
   if (!imgLoaded) return;
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
@@ -1064,7 +1065,7 @@ canvas.addEventListener('mousemove', function(e) {
   }
 });
 
-canvas.addEventListener('mouseup', function(e) {
+canvas.addEventListener('pointerup', function(e) {
   if (drawing) {
     drawing = false;
     const ip1 = canvasToImg(drawStartX, drawStartY);
@@ -1142,36 +1143,76 @@ canvas.addEventListener('wheel', function(e) {
   }
 }, { passive: false });
 
-// Touch: swipe left/right to page through images.
+// Touch input.
 //
-// There is no other way to do it on a phone. Navigation is bound to the arrow
-// keys (no keyboard), the wheel event (touch scrolling does not emit one) and
-// the two toolbar buttons -- and on a narrow viewport the "next" button is the
-// one that ends up furthest past the edge of the toolbar.
+// Two things live here and they have to agree with each other.
 //
-// Deliberately touchstart + touchend only, with no touchmove handler and no
-// preventDefault on the way in: the browser synthesises the mouse events this
-// canvas is built on from an untouched touch sequence, and that synthesis is
-// the only reason tapping works here at all. Cancelling touchend once a swipe
-// is recognised is what stops that same tap from also landing as a click.
-let _touchStart = null;
+// The canvas editor is built on mouse events, and a browser does NOT
+// synthesise those from a touch DRAG -- it synthesises them from a tap and
+// then, the moment a drag starts to look like a pan, it stops. Measured on a
+// 412px viewport, a slow drag across the canvas produced pointerdown,
+// touchstart, a single pointermove, ten touchmoves and touchend, and not one
+// mouse event. That is why drawing a box was impossible on a phone. The
+// handlers above are on Pointer Events now, which fire for mouse, pen and
+// touch alike, and `touch-action: none` on the canvas (style.css) is what
+// stops the browser claiming the gesture as a pan first.
+//
+// That fixes drawing and immediately creates a conflict: one finger dragged
+// horizontally across the image is now a wide box, and it used to be "next
+// image". So the gestures split by what the mode can actually do. Left-drag
+// only draws in dataset mode -- the handler above returns early otherwise --
+// so one finger is free to mean "page" in live and video mode, and in dataset
+// mode paging moves to two fingers, which can never be the start of a box.
+const _activePointers = new Set();
+let _gesture = null;
 const SWIPE_MIN_PX = 60;      // shorter than this is a tap or a wobble
 const SWIPE_MAX_MS = 600;     // slower than this is a drag, not a flick
 
+function _touchMid(touches) {
+  let x = 0, y = 0;
+  for (const t of touches) { x += t.clientX; y += t.clientY; }
+  return { x: x / touches.length, y: y / touches.length };
+}
+
+// Pointer bookkeeping is separate from the gesture so the draw handler can ask
+// "is more than one finger down?" without caring what the gesture turns out to
+// be. pointercancel matters as much as pointerup: with touch-action none it is
+// rare, but a system gesture taking over still has to clear the set or every
+// later press looks like a second finger.
+canvas.addEventListener('pointerdown', (e) => _activePointers.add(e.pointerId));
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave'])
+  canvas.addEventListener(ev, (e) => _activePointers.delete(e.pointerId));
+
 canvas.addEventListener('touchstart', function(e) {
-  _touchStart = e.touches.length === 1
-    ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
-    : null;  // two fingers is a pinch, not a page turn
+  const fingers = e.touches.length;
+  const navigable = currentMode !== 'dataset' ? 1 : 2;
+  if (fingers !== navigable) {
+    // A second finger landing mid-draw is a change of intent, not a box.
+    // Abandon the in-progress edit and drop the undo entry it pushed.
+    if (fingers > 1 && (drawing || dragging || resizing)) {
+      drawing = dragging = resizing = false;
+      dragIdx = resizeIdx = -1;
+      resizeHandle = '';
+      popUndo();
+      render();
+    }
+    _gesture = null;
+    return;
+  }
+  const m = _touchMid(e.touches);
+  _gesture = { x: m.x, y: m.y, t: Date.now(), fingers };
 }, { passive: true });
 
 canvas.addEventListener('touchend', function(e) {
-  if (!_touchStart || e.changedTouches.length !== 1) { _touchStart = null; return; }
-  const dx = e.changedTouches[0].clientX - _touchStart.x;
-  const dy = e.changedTouches[0].clientY - _touchStart.y;
-  const dt = Date.now() - _touchStart.t;
-  _touchStart = null;
-  // Horizontal by a clear margin, or a diagonal drag meant as drawing would
-  // page the image away instead.
+  if (!_gesture) return;
+  const g = _gesture;
+  _gesture = null;
+  // Read the last known position from the fingers that just lifted.
+  if (e.changedTouches.length < 1) return;
+  const m = _touchMid(e.changedTouches);
+  const dx = m.x - g.x, dy = m.y - g.y, dt = Date.now() - g.t;
+  // Horizontal by a clear margin, or a diagonal drag meant as something else
+  // pages the image away instead.
   if (dt > SWIPE_MAX_MS || Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 2) return;
   e.preventDefault();          // suppress the synthesised click for this gesture
   navigate(dx < 0 ? 1 : -1);   // swipe left = forward, like a photo gallery
