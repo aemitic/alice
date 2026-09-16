@@ -120,7 +120,7 @@
     <button class="btn filter" data-ttab="logs" onclick="setTrainerTab('logs')">Logs</button>
   </div>
 
-  <div style="display:flex;flex:1;overflow:hidden;width:100%">
+  <div class="trainer-body" style="display:flex;flex:1;overflow:hidden;width:100%">
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
       <div class="trainer-content" id="trainerContent" style="flex:1"></div>
     </div>
@@ -216,7 +216,7 @@
 
     <!-- TAB: AI -->
     <div class="settings-panel" id="stab-ai" style="max-width:900px">
-      <div style="display:grid;grid-template-columns:1fr 280px;gap:24px;width:100%;margin-bottom:24px">
+      <div class="form-row" style="--cols:1fr 280px;gap:24px;width:100%;margin-bottom:24px">
       <div class="settings-card" style="margin-bottom:0">
         <h3>AI Defaults</h3>
         <div class="flex-col gap-14">

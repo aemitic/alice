@@ -139,6 +139,17 @@ function init() {
   });
   window.addEventListener('resize', resizeCanvas);
 
+  // The sidebar always starts expanded and the panel restores its saved state,
+  // so on a narrow viewport the very first paint can show both drawers stacked
+  // on top of each other. Collapse the sidebar and leave the panel as the user
+  // left it. Re-checked on rotation, where a landscape phone can cross back.
+  const _narrow = window.matchMedia(NARROW_VIEWPORT);
+  const _oneDrawerAtMost = () => {
+    if (_narrow.matches && sidebarIsOpen() && panelOpen) toggleSidebar();
+  };
+  _oneDrawerAtMost();
+  if (_narrow.addEventListener) _narrow.addEventListener('change', _oneDrawerAtMost);
+
   const dsel = document.getElementById('datasetSel');
   if (dsel) STATE_DATASET_PATH = dsel.value;
 
@@ -456,10 +467,25 @@ function switchMode(mode) {
 // ============================================================
 // SIDEBAR
 // ============================================================
+// Below this width the sidebar and the panel open as overlay drawers rather
+// than as columns — see the matching media query in style.css. Keep the two
+// values in sync.
+const NARROW_VIEWPORT = '(max-width: 860px)';
+function isNarrowViewport() { return window.matchMedia(NARROW_VIEWPORT).matches; }
+function sidebarIsOpen() {
+  const sb = document.getElementById('sidebar');
+  return !!sb && !sb.classList.contains('collapsed');
+}
+
 function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   sb.classList.toggle('collapsed');
   updateSidebarToggle();
+  // On a phone both drawers overlap, so opening one closes the other. The
+  // guard is on the OPENING direction only, which is what stops this from
+  // recursing: togglePanel() below closes the panel, and its own guard then
+  // sees panelOpen === false and stops.
+  if (sidebarIsOpen() && isNarrowViewport() && panelOpen) togglePanel();
 }
 
 function updateSidebarToggle() {
@@ -483,6 +509,7 @@ function togglePanel() {
   p.classList.toggle('collapsed', !panelOpen);
   updatePanelToggle();
   setTimeout(resizeCanvas, 250);
+  if (panelOpen && isNarrowViewport() && sidebarIsOpen()) toggleSidebar();
 }
 
 function updatePanelToggle() {
@@ -897,8 +924,9 @@ function imgToNorm(ix, iy) {
   return { x: ix / img.naturalWidth, y: iy / img.naturalHeight };
 }
 
-canvas.addEventListener('mousedown', function(e) {
+canvas.addEventListener('pointerdown', function(e) {
   if (!imgLoaded) return;
+  if (_activePointers.size > 1) return;   // second finger down: that is a navigation gesture, not a draw
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
 
@@ -980,7 +1008,7 @@ canvas.addEventListener('mousedown', function(e) {
   }
 });
 
-canvas.addEventListener('mousemove', function(e) {
+canvas.addEventListener('pointermove', function(e) {
   if (!imgLoaded) return;
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
@@ -1037,7 +1065,7 @@ canvas.addEventListener('mousemove', function(e) {
   }
 });
 
-canvas.addEventListener('mouseup', function(e) {
+canvas.addEventListener('pointerup', function(e) {
   if (drawing) {
     drawing = false;
     const ip1 = canvasToImg(drawStartX, drawStartY);
@@ -1113,6 +1141,81 @@ canvas.addEventListener('wheel', function(e) {
     setTimeout(() => scrollFrozen = false, 200);
     navigate(e.deltaY > 0 ? 1 : -1);
   }
+}, { passive: false });
+
+// Touch input.
+//
+// Two things live here and they have to agree with each other.
+//
+// The canvas editor is built on mouse events, and a browser does NOT
+// synthesise those from a touch DRAG -- it synthesises them from a tap and
+// then, the moment a drag starts to look like a pan, it stops. Measured on a
+// 412px viewport, a slow drag across the canvas produced pointerdown,
+// touchstart, a single pointermove, ten touchmoves and touchend, and not one
+// mouse event. That is why drawing a box was impossible on a phone. The
+// handlers above are on Pointer Events now, which fire for mouse, pen and
+// touch alike, and `touch-action: none` on the canvas (style.css) is what
+// stops the browser claiming the gesture as a pan first.
+//
+// That fixes drawing and immediately creates a conflict: one finger dragged
+// horizontally across the image is now a wide box, and it used to be "next
+// image". So the gestures split by what the mode can actually do. Left-drag
+// only draws in dataset mode -- the handler above returns early otherwise --
+// so one finger is free to mean "page" in live and video mode, and in dataset
+// mode paging moves to two fingers, which can never be the start of a box.
+const _activePointers = new Set();
+let _gesture = null;
+const SWIPE_MIN_PX = 60;      // shorter than this is a tap or a wobble
+const SWIPE_MAX_MS = 600;     // slower than this is a drag, not a flick
+
+function _touchMid(touches) {
+  let x = 0, y = 0;
+  for (const t of touches) { x += t.clientX; y += t.clientY; }
+  return { x: x / touches.length, y: y / touches.length };
+}
+
+// Pointer bookkeeping is separate from the gesture so the draw handler can ask
+// "is more than one finger down?" without caring what the gesture turns out to
+// be. pointercancel matters as much as pointerup: with touch-action none it is
+// rare, but a system gesture taking over still has to clear the set or every
+// later press looks like a second finger.
+canvas.addEventListener('pointerdown', (e) => _activePointers.add(e.pointerId));
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave'])
+  canvas.addEventListener(ev, (e) => _activePointers.delete(e.pointerId));
+
+canvas.addEventListener('touchstart', function(e) {
+  const fingers = e.touches.length;
+  const navigable = currentMode !== 'dataset' ? 1 : 2;
+  if (fingers !== navigable) {
+    // A second finger landing mid-draw is a change of intent, not a box.
+    // Abandon the in-progress edit and drop the undo entry it pushed.
+    if (fingers > 1 && (drawing || dragging || resizing)) {
+      drawing = dragging = resizing = false;
+      dragIdx = resizeIdx = -1;
+      resizeHandle = '';
+      popUndo();
+      render();
+    }
+    _gesture = null;
+    return;
+  }
+  const m = _touchMid(e.touches);
+  _gesture = { x: m.x, y: m.y, t: Date.now(), fingers };
+}, { passive: true });
+
+canvas.addEventListener('touchend', function(e) {
+  if (!_gesture) return;
+  const g = _gesture;
+  _gesture = null;
+  // Read the last known position from the fingers that just lifted.
+  if (e.changedTouches.length < 1) return;
+  const m = _touchMid(e.changedTouches);
+  const dx = m.x - g.x, dy = m.y - g.y, dt = Date.now() - g.t;
+  // Horizontal by a clear margin, or a diagonal drag meant as something else
+  // pages the image away instead.
+  if (dt > SWIPE_MAX_MS || Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 2) return;
+  e.preventDefault();          // suppress the synthesised click for this gesture
+  navigate(dx < 0 ? 1 : -1);   // swipe left = forward, like a photo gallery
 }, { passive: false });
 
 // Middle click freeze
