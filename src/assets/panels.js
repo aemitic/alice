@@ -43,6 +43,9 @@ function renderEditTab() {
   html += '</select>';
   html += '<div class="text-hint">Click + drag on canvas to draw. Right-click to select.</div>';
 
+  // Wrapped so a narrow viewport can drop it: it is the tallest block in the
+  // panel and it is a keyboard legend on a device with no keyboard.
+  html += '<div class="edit-shortcuts">';
   html += '<div class="divider"></div>';
   html += '<div class="sec-label">Keyboard Shortcuts</div>';
   html += '<div style="font-size:var(--fs-sm);color:var(--t2);font-family:var(--font);line-height:2.4">';
@@ -57,6 +60,7 @@ function renderEditTab() {
       <span style="font-size:var(--fs-sm)">${desc}</span>
     </div>`;
   }
+  html += '</div>';
   html += '</div>';
 
   return html;
