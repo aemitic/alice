@@ -680,6 +680,15 @@ canvas#mainCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 10
 .font-ui { font-family: var(--fontUI); }
 .text-hint { font-size: var(--fs-sm); color: var(--t2); margin-top: 4px; line-height: 1.5; }
 
+/* Device-specific instructions. Keyed on (hover: none) rather than on the
+   width breakpoint everything else uses, because the question here is "is
+   there a mouse", not "is the window narrow". */
+.hint-touch { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .hint-pointer { display: none; }
+  .hint-touch   { display: block; }
+}
+
 .btn.gallery-btn {
   font-size: var(--fs-xl); font-weight: 600; line-height: 16px;
   padding: var(--pad-xs) var(--pad-md); height: var(--h-btn);
@@ -860,6 +869,13 @@ canvas#mainCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 10
      which is narrower than their own dropdown arrow. */
   .toolbar > * { flex-shrink: 0; }
   .toolbar .sel { min-width: 8.5rem; }
+
+  /* Pull prev / counter / next to the front of the scrollable toolbar. They
+     are the controls reached most often and they sat behind the dataset
+     select, four filter buttons and the class filter, so paging meant swiping
+     the strip sideways every time. Flex keeps DOM order within one `order`
+     value, so the three stay in sequence. */
+  .toolbar .nav-btn, .toolbar .img-counter { order: -1; }
 
   /* Multi-column form rows become one column. At 412px the trainer's
      2fr/1fr/1fr row leaves its path inputs 46-62px wide, which shows about

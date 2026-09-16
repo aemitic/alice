@@ -41,7 +41,13 @@ function renderEditTab() {
     html += `<option value="${c}">${c}: ${CN[c] || c}</option>`;
   }
   html += '</select>';
-  html += '<div class="text-hint">Click + drag on canvas to draw. Right-click to select.</div>';
+  // Two hints, one shown. The instructions genuinely differ by input device --
+  // there is no right-click and no "click + drag" on a phone, and paging moved
+  // to two fingers because one finger draws. Which one shows is decided in CSS
+  // by (hover: none), i.e. by whether there is a pointer, not by window width:
+  // a narrow desktop window should still read the mouse instructions.
+  html += '<div class="text-hint hint-pointer">Click + drag on canvas to draw. Right-click to select.</div>';
+  html += '<div class="text-hint hint-touch">Drag on the image to draw a box. Swipe with <b>two fingers</b> to change image.</div>';
 
   // Wrapped so a narrow viewport can drop it: it is the tallest block in the
   // panel and it is a keyboard legend on a device with no keyboard.
