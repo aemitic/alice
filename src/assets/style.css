@@ -52,7 +52,15 @@
 body {
   background: var(--bg0); color: var(--t0);
   font-family: var(--fontUI); font-size: var(--fs-base);
-  overflow: hidden; height: 100vh; width: 100vw;
+  overflow: hidden; width: 100vw;
+  /* 100vh on a mobile browser is the LARGE viewport -- the height the page
+     would have if the URL bar were hidden -- so the bottom of the layout sits
+     underneath the visible URL bar and is simply not there. That is invisible
+     in headless testing, which has no browser chrome. dvh is the viewport as
+     it actually is right now; the vh line stays first as the fallback for
+     browsers that do not know dvh. */
+  height: 100vh;
+  height: 100dvh;
   display: flex;
 }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -835,6 +843,7 @@ canvas#mainCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 10
   .panel {
     width: auto; min-width: 0;
     max-height: 55vh;
+    max-height: 55dvh;
     border-left: none; border-top: 1px solid var(--bd);
     transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }

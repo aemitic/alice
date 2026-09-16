@@ -1028,7 +1028,14 @@ canvas.addEventListener('pointerdown', function(e) {
       renderPanelContent();
     }
 
-    // Start drawing new box
+    // Start drawing new box -- but only from inside the image. The canvas is
+    // bigger than the picture drawn in it, and on a phone in portrait it is a
+    // lot bigger: a 16:9 frame leaves roughly half the canvas as letterbox.
+    // A drag begun out there used to rubber-band as though it were valid, then
+    // clamp to the image edge and save whatever sliver survived the minimum
+    // size check -- a 3px-tall "person" landing in the training set.
+    if (np.x < 0 || np.x > 1 || np.y < 0 || np.y > 1) return;
+
     pushUndo();
     drawing = true;
     drawStartX = mx;
